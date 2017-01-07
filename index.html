@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html ja>
+<head>
+    <meta charset="utf-8" />
+    <title>４面テトリス</title>
+    <style type="text/css">
+        .field {
+            background: grey;
+            width: 600px;
+        }
+    </style>
+</head>
+<body>
+    <h1>４面テトリス</h1>
+
+    <canvas id="field" class="field">
+        
+    </canvas>
+    <script type="text/javascript">
+        const CANVAS_WIDTH = 400;
+        const CANVAS_HEIGHT = 400;
+        const BLOCK_WIDTH = 20;
+        const BLOCK_HEIGHT = 20;
+        const ARROW = {
+            UP: 0,
+            DOWN: 1,
+            LEFT: 2,
+            RIGHT: 3,
+            CENTER: 4,
+        };
+
+        var canvas = document.getElementById('field');
+        var context = canvas.getContext('2d');
+
+        var block = function(x, y, color) {
+            this.x = x;
+            this.y = y;
+            this.operation = true;
+            this.color = color;
+        };
+
+        var blocks = [];
+        var moveDirection = ARROW.DOWN;
+        var gameOver = false;
+
+        var drawRect = function ()
+        {
+            context.clearRect(0, 0, canvas.width, canvas.height);
+
+            context.strokeStyle = 'black';
+
+            for (var i = 0; i < blocks.length; i++) {
+                context.fillStyle = blocks[i].color;
+                context.fillRect(blocks[i].x, blocks[i].y, 
+                                 BLOCK_WIDTH, BLOCK_HEIGHT);
+            }
+        };
+
+        var canMove = function (direction, index)
+        {
+            var checkDirection = {};
+            var x = blocks[index].x;
+            var y = blocks[index].y;
+
+            for (var i = 0; i < blocks.length; i++) {
+                if (blocks[i].operation) {
+                    continue;
+                }
+
+                if (direction === ARROW.UP 
+                    && blocks[i].x === x && y - BLOCK_HEIGHT === blocks[i].y) {
+                    return false;
+                }
+
+                if (direction === ARROW.DOWN
+                    && blocks[i].x === x && blocks[i].y === y + BLOCK_HEIGHT) {
+                    return false;
+                }
+
+                if (direction === ARROW.LEFT
+                    && x - BLOCK_WIDTH === blocks[i].x && blocks[i].y === y) {
+                    return false;
+                }
+
+                if (direction === ARROW.RIGHT
+                    && blocks[i].x === x + BLOCK_WIDTH && blocks[i].y === y) {
+                    return false;
+                }
+            }
+
+            checkDirection[ARROW.UP] = function () {
+                var nextY = y - BLOCK_HEIGHT;
+
+                if (nextY < 0) {
+                    return false;
+                } else {
+                    return true;
+                }
+            };
+
+            checkDirection[ARROW.DOWN] = function () {
+                var nextY = y + BLOCK_HEIGHT;
+
+                if (CANVAS_HEIGHT <= nextY) {
+                    return false;
+                } else {
+                    return true;
+                }
+            };
+            
+            checkDirection[ARROW.LEFT] = function () {
+                var nextX = x - BLOCK_WIDTH;
+
+                if (nextX < 0) {
+                    return false;
+                } else {
+                    return true;
+                }
+            };
+
+            checkDirection[ARROW.RIGHT] = function () {
+                var nextX = x + BLOCK_WIDTH;
+
+                if (CANVAS_WIDTH <= nextX) {
+                    return false;
+                } else {
+                    return true;
+                }
+            };
+
+            return checkDirection[direction]();
+        };
+
+        var eraseBlock = function ()
+        {
+            var hit = [-1, -1, -1, -1, -1];
+
+            if (blocks.length < 5) {
+                return false;
+            }
+
+            for (var i = 0; i < blocks.length; i++) {
+                hit[ARROW.CENTER] = i;
+
+                for (var j = 0; j < blocks.length; j++) {
+                    if (blocks[i].x === blocks[j].x) {
+                        if (blocks[i].y - BLOCK_HEIGHT === blocks[j].y) {
+                            hit[ARROW.UP] = j;
+                        }
+                        
+                        if (blocks[i].y + BLOCK_HEIGHT === blocks[j].y) {
+                            hit[ARROW.DOWN] = j;
+                        }
+                    }
+                    
+                    if (blocks[i].y === blocks[j].y) {
+                        if (blocks[i].x - BLOCK_WIDTH === blocks[j].x) {
+                            hit[ARROW.LEFT] = j;
+                        }
+
+                        if (blocks[i].x + BLOCK_WIDTH === blocks[j].x) {
+                            hit[ARROW.RIGHT] = j;
+                        }
+                    }
+                }
+
+                var erase = true;
+                for (var j = 0; j < hit.length; j++) {
+                    if (hit[j] === -1) {
+                        erase = false;
+                    }
+                }
+
+                if (erase) {
+                    hit.sort(function (a, b) {
+                        if (a < b) return -1;
+                        if (a > b) return 1;
+                        return 0;
+                    });
+
+                    console.log(blocks.length);
+
+                    for (var j = 0; j < hit.length; j++) {
+                        blocks[hit[j] - j].operation = false;
+                        blocks.splice(hit[j] - j, 1);
+                    }
+
+                    console.log(blocks.length);
+                }
+
+                for (var j = 0; j < hit.length; j++) {
+                    hit[j] = -1;
+                }
+            }
+
+            return false;
+        };
+
+        var createBlock = function () 
+        {
+            var blockFoundation = [
+                [-1, -1, -1],
+                [-1, -1, -1],
+                [-1, -1, -1],
+            ];
+
+            var lengthX = blockFoundation[0].length;
+            var lengthY = blockFoundation.length;
+
+            // 仮としてブロック数を１〜９にしている（実際はX字の最大５）
+            var blockNum = Math.floor(Math.random() * 9) + 1;
+
+            for (var i = 0; i < blockNum; i++) {
+                var indexX = Math.floor(Math.random() * lengthX);
+                var indexY = Math.floor(Math.random() * lengthY);
+
+                if (blockFoundation[indexX][indexY] === -1) {
+
+                    // 縦、横にブロックが無いことが条件
+                    // 条件を満たさない場合、削除
+                    var create = 1;
+                    if (0 < indexY && blockFoundation[indexY - 1][indexX] === 1) {
+                        create = -1;
+                    } else if (indexY < lengthY - 1 && blockFoundation[indexY + 1][indexX] === 1) {
+                        create = -1;
+                    } else if (0 < indexX && blockFoundation[indexY][indexX - 1] === 1) {
+                        create = -1;
+                    } else if (indexX < lengthX - 1 && blockFoundation[indexY][indexX + 1] === 1) {
+                        create = -1;
+                    }
+
+                    blockFoundation[indexY][indexX] = create;
+                }
+            }
+
+            var baseX = 0;
+            var baseY = 0;
+            var color = 'black';
+            moveDirection = Math.floor(Math.random() * 4);
+            if (moveDirection === ARROW.UP) {
+                baseX = CANVAS_WIDTH / 2 - BLOCK_WIDTH;
+                baseY = CANVAS_HEIGHT - BLOCK_HEIGHT * lengthY;
+                color = 'red';
+            } else if (moveDirection === ARROW.DOWN) {
+                baseX = CANVAS_WIDTH / 2 - BLOCK_WIDTH * lengthY;
+                baseY = 0;
+                color = 'blue';
+            } else if (moveDirection === ARROW.LEFT) {
+                baseX = CANVAS_WIDTH - BLOCK_WIDTH * lengthX;
+                baseY = CANVAS_HEIGHT / 2 - BLOCK_HEIGHT;
+                color = 'green';
+            } else if (moveDirection === ARROW.RIGHT) {
+                baseX = 0;
+                baseY = CANVAS_HEIGHT / 2 - BLOCK_HEIGHT;
+                color = 'yellow';
+            }
+
+            for (var i = 0; i < lengthX; i++) {
+                for (var j = 0; j < lengthY; j++) {
+                    if (blockFoundation[j][i] === 1) {
+                        var x = baseX + i * BLOCK_WIDTH;
+                        var y = baseY + j * BLOCK_HEIGHT;
+                        
+                        blocks.push(new block(x, y, color));
+                    }
+                }
+            }
+
+            console.log(blocks.length);
+        };
+
+        var checkGameOver = function (direction)
+        {
+            for (var i = 0; i < blocks.length; i++) {
+                if (direction === ARROW.LEFT && blocks[i].x === 0 
+                    || direction === ARROW.RIGHT && blocks[i].x + BLOCK_WIDTH === CANVAS_WIDTH
+                    || direction === ARROW.UP && blocks[i].y === 0
+                    || direction === ARROW.DOWN && blocks[i].y + BLOCK_HEIGHT === CANVAS_HEIGHT) {
+                    gameOver = true;
+                    return true;
+                }
+            }
+
+            return false;
+        };
+
+        var moveBlock = function (direction)
+        {
+
+            var move = true;
+
+            for (var i = 0; i < blocks.length; i++) {
+                if (blocks[i].operation) {
+                    if (!canMove(direction, i)) {
+                        move = false;
+                    }
+                }
+            }
+
+            if (move) {
+                var moveX = 0;
+                var moveY = 0;
+
+                if (direction === ARROW.UP) {
+                    moveY = -BLOCK_HEIGHT;
+                } else if (direction == ARROW.DOWN) {
+                    moveY = BLOCK_HEIGHT;
+                } else if (direction === ARROW.LEFT) {
+                    moveX = -BLOCK_WIDTH;
+                } else if (direction === ARROW.RIGHT) {
+                    moveX = BLOCK_WIDTH;
+                }
+
+                var create = false;
+                for (var i = 0; i < blocks.length; i++) {
+                    if (blocks[i].operation) {
+                        blocks[i].x += moveX;
+                        blocks[i].y += moveY;
+
+                        // 移動した後に移動できない状態 = 次のブロック作るとき
+                        if (!canMove(direction, i)) {
+                            create = true;
+                        }
+                    }
+                }
+
+                if (create) {
+                    for (var i = 0; i < blocks.length; i++) {
+                        if (blocks[i].operation) {
+                            blocks[i].operation = false;
+                        }
+                    }
+
+                    createBlock();
+                }
+
+                drawRect(direction, i);
+
+                if (eraseBlock()) {
+                    console.log("Erase!!");
+                }
+
+                if (checkGameOver(direction)) {
+                    console.log("GameOver...");
+                }
+            }
+        };
+
+        document.onkeydown = function (e)
+        {
+            if (e.key === 'ArrowUp') {
+                moveBlock(ARROW.UP);
+            } else if (e.key === 'ArrowDown') {
+                moveBlock(ARROW.DOWN);
+            } else if (e.key === 'ArrowLeft') {
+                moveBlock(ARROW.LEFT);
+            } else if (e.key === 'ArrowRight') {
+                moveBlock(ARROW.RIGHT);
+            }
+        };
+
+        window.onload = function ()
+        {
+            if (!canvas.getContext) return;
+
+            canvas.width = CANVAS_WIDTH;
+            canvas.height = CANVAS_HEIGHT;
+
+            // 真ん中に黒色の初期ブロックを置く
+            blocks.push(
+                new block(
+                    CANVAS_WIDTH / 2 - BLOCK_WIDTH, 
+                    CANVAS_HEIGHT / 2 - BLOCK_WIDTH, 
+                    'black'
+                )
+            );
+            blocks[0].operation = false;
+
+            createBlock();
+            drawRect();
+
+            setTimeout(function dropBlock() {
+                var loop = (blocks.length !== 0) ? true : false;
+                
+                if (!gameOver && loop) {
+                    moveBlock(moveDirection);
+                    setTimeout(dropBlock, 750);
+                } else if (gameOver) {
+                    window.alert('GameOver...');
+                } else {
+                    window.alert('Clear!!');
+                }
+            }, 750);
+        };
+    </script>
+</body>
+</html>
